@@ -4,6 +4,8 @@ Este repositório apresenta um **mini treinamento prático** que simula um **cen
 
 O objetivo não é apenas mostrar tecnologia, mas **como tomar decisões de negócio**, lidar com **falhas reais** (limites de IA, serviços externos) e manter o fluxo operacional.
 
+<img width="911" height="464" alt="image" src="https://github.com/user-attachments/assets/3c356148-1e78-4076-8b0b-5734f773eef0" />
+
 ---
 
 ## 🎯 Objetivo do Projeto
@@ -65,7 +67,7 @@ Caso a IA esteja indisponível ou atinja limite de uso:
 * O fluxo **não para**
 * O motivo do fallback é registrado
 
-> Isso reflete um cenário real de produção.
+> ⚠️ Observação importante: para permitir que o n8n acesse a API local, foi utilizado ngrok, expondo a rota de qualificação de leads de forma segura. O fluxo não utiliza localhost, simulando um ambiente real de integração entre serviços.
 
 ### 5️⃣ Persistência dos Resultados
 
