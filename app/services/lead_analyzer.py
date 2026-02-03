@@ -1,68 +1,78 @@
-import requests
-import json
 import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "deepseek/deepseek-r1-0528:free"
-
+URL = "https://openrouter.ai/api/v1/chat/completions"
 
 def qualify_lead(lead: dict) -> dict:
-    """
-    Recebe um lead e retorna score + motivo usando LLM
-    """
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost",
+        "X-Title": "AI Lead Qualifier"
+    }
 
     prompt = f"""
-Você é um assistente comercial.
+Você é um analista comercial.
+Classifique o lead como QUENTE, MORNO ou FRIO.
 
-Classifique o lead abaixo como:
-- QUENTE
-- MORNO
-- FRIO
-
-Retorne APENAS um JSON no formato:
-{{
-  "score": "QUENTE | MORNO | FRIO",
-  "motivo": "explicação curta"
-}}
-
-Lead:
-Nome: {lead.get("nome")}
-Empresa: {lead.get("empresa")}
+Dados:
 Cargo: {lead.get("cargo")}
+Empresa: {lead.get("empresa")}
 Tamanho da empresa: {lead.get("tamanho_empresa")}
 Mensagem: {lead.get("mensagem")}
+
+Responda em JSON no formato:
+{{"score": "...", "motivo": "..."}}
 """
 
-    response = requests.post(
-        url=OPENROUTER_URL,
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost",
-            "X-Title": "AI Lead Qualifier",
-        },
-        data=json.dumps({
-            "model": MODEL,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        }),
-        timeout=30
-    )
-
-    response.raise_for_status()
-
-    content = response.json()["choices"][0]["message"]["content"]
-
-    # segurança básica caso venha texto extra
-    result = json.loads(content)
-
-    return {
-        "score": result["score"],
-        "motivo": result["motivo"]
+    payload = {
+        "model": "openai/gpt-oss-20b:free",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.3
     }
+
+    try:
+        response = requests.post(
+            URL,
+            headers=headers,
+            json=payload,
+            timeout=20
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"OpenRouter error {response.status_code}: {response.text}")
+
+        data = response.json()
+
+        # Validação defensiva
+        if "choices" not in data:
+            raise Exception(f"Resposta inesperada: {data}")
+
+        content = data["choices"][0]["message"]["content"]
+
+        return eval(content)  # simples por agora
+
+    except Exception as e:
+        cargo = lead.get("cargo", "").lower()
+        tamanho = lead.get("tamanho_empresa", 0)
+
+        if "ceo" in cargo or "diretor" in cargo or tamanho >= 100:
+            score = "QUENTE"
+            motivo = "Fallback: cargo decisor ou empresa grande"
+        else:
+            score = "MORNO"
+            status = "Arquivado"
+            motivo = "Fallback: análise manual necessária"
+
+        return {
+            "score": score,
+            "motivo": f"{motivo} | IA indisponível ({str(e)})"
+        }
+
